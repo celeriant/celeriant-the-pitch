@@ -1,6 +1,6 @@
 # Celeriant
 
-A fast, distributed, append only write-ahead-log, built specifically for event-sourcing. It's dedicated to the write side of CQRS.
+A fast, distributed, append only write-ahead-log, built specifically for event-sourcing. It's dedicated to the write side of [CQRS](https://www.martinfowler.com/bliki/CQRS.html).
 
 ## Why Celeriant
 Event sourcing is hard. The OSS tooling we have right now is not a great fit. The infrastructure required to build systems that rely on events slows dev teams down.
@@ -11,7 +11,7 @@ Scale as you grow. PostgreSQL gives you correctness but not throughput. Kafka gi
 
 Simple to run. Two nodes. No zookeeper, no partition rebalancing or vacuum tuning. Bounded memory, regardless of aggregate or event counts. Celeriant plays nice in prod.
 
-Built for regulated industries. Durable writes, per-event encryption, and every event is linked to its predecessor via Blake3 hash, creating an immutable audit chain.
+Built for regulated industries. Durable writes, per-event encryption, and every event is linked to its predecessor via [Blake3](https://github.com/BLAKE3-team/BLAKE3) hash, creating an immutable audit chain.
 
 ## 'Hello World' write benchmark
 
@@ -33,7 +33,7 @@ It does all the things. You can design a single table that acts like a write-ahe
 
 PostgreSQL dies at scale. Event stores often form the backbone of microservices architectures. They get busy. You are looking at 10-20k writes/sec on a good day. Add row locking, index lookups on conditional writes, things get worse fast.
 
-There is also IOPS + vacuum pressure. Writes in PostgreSQL leave a lot of garbage lying around that needs to be cleaned up in the background.
+There is also [IOPS + vacuum pressure](https://frn.sh/bio/). Writes in PostgreSQL leave a lot of garbage lying around that needs to be cleaned up in the background.
 
 I've personally worked with companies while at Thoughtworks that have hit this wall. It's real.
 
@@ -42,7 +42,7 @@ Teams reach for Kafka as the alternative. Microservices each have their own Post
 
 On the surface it fixes all the problems. Kafka can scale to millions of writes/sec. And each service has a DB where it can use transactions. All problems solved? Not quite :)
 
-Things start unravelling quickly. Before a service can write events, it needs to run its validation routine. That validation often relies on state that is constructed from other services' events. So there is an issue. We can't commit that event unless we know our state hasn't changed under us while processing. Kafka is no help here - it does event streaming - it doesn't have conditional writes + OCC. There may be only a few milliseconds in play here, so these problems don't show up in testing. They show up under production workloads.
+Things start unravelling quickly. Before a service can write events, it needs to run its validation routine. That validation often relies on state that is constructed from other services' events. So there is an issue. We can't commit that event unless we know our state hasn't changed under us while processing. Kafka is no help here - it does event streaming - it doesn't have conditional writes + [OCC](https://issues.apache.org/jira/browse/KAFKA-2260). There may be only a few milliseconds in play here, so these problems don't show up in testing. They show up under production workloads.
 
 ![Kafka diagram](kafka-cdc-race-condition.svg) 
 
@@ -52,15 +52,15 @@ If there are problems with an aggregate, you need a dead-letter queue (DLQ). Onb
 
 Event ordering seems solved with a message key. But when you re-partition the Kafka cluster, the ordering gets messed up. It's terrifying so nobody does it. So you can't scale as you grow.
 
-Kafka also has the schema registry (which is not really open source) - you can validate your event structures. But the broker side validation is Confluent Cloud enterprise only - critical to guarantee events always conform to the right schema.
+Kafka also has the schema registry ([which is not really open source](https://www.confluent.io/confluent-community-license-faq/)) - you can validate your event structures. But the [broker side validation is Confluent enterprise only](https://docs.confluent.io/platform/current/schema-registry/schema-validation.html#license) - critical to guarantee events always conform to the right schema.
 
 Teams end up with a lot of crazy code to handle the sharp edges. It performs at scale, but you give up critical event sourcing functionality that should be built in.
 
 ## Core Celeriant Features
 
 - Written in Rust. Linux only. Clients communicate over TCP connections.
-- Thread-per-core architecture for low latency, high throughput. Inspired by ScyllaDB and TigerBeetle.
-- Two node cluster with S3 conditional writes for leader lease arbitration.
+- Thread-per-core architecture for low latency, high throughput. Inspired by [ScyllaDB](https://www.scylladb.com/) and [TigerBeetle](https://tigerbeetle.com/).
+- Two node cluster with [S3 conditional writes](https://aws.amazon.com/about-aws/whats-new/2024/08/amazon-s3-conditional-writes/) for leader lease arbitration.
 - No cardinality constraints. Store millions of aggregates, billions of events on a 32GB RAM server
 - Dynamic consistency boundaries + per-aggregate ordering. Conditionally, atomically write events to multiple aggregates.
 - Schema validation for event types, semantic versioning built in.
@@ -90,13 +90,13 @@ Ordering is guaranteed *within* a shard. Aggregates are assigned a shard determi
 
 Events are batched and written durably to disk on the leader. The leader then replicates the batch to the follower which also does a durable write. After confirming the replication, the leader acks back to clients. Celeriant is designed to never lose acknowledged writes.
 
-Celeriant uses Direct I/O. It skips the Linux kernel page cache, which has issues with reporting fsync issues. Many databases skip Direct I/O - but buffered I/O through the kernel page cache is vulnerable to silent data loss on fsync failure.
+Celeriant uses Direct I/O. It skips the Linux kernel page cache, which has issues with reporting fsync issues. Many databases skip Direct I/O - but buffered I/O through the kernel page cache is vulnerable to [silent data loss on fsync failure](https://lwn.net/Articles/752063/).
 
 Fsync and replication are expensive, so Celeriant amortises this cost via batching. Thread-per-core simplifies this, most databases that run on thread pools have tricky concurrency and locking issues, but Celeriant avoids these classes of bugs entirely.
 
 ### Cluster Replication
 
-Celeriant does not implement a consensus algorithm. No RAFT, PAXOS or VSR. It relies on a 3rd party lease system - S3 conditional writes. A two node cluster starts up and both race to claim the lease in S3 to become the leader. Only one node can be the winner. The loser becomes the follower.
+Celeriant does not implement a consensus algorithm. No RAFT, PAXOS or VSR ([why not?](https://transactional.blog/talk/enough-with-all-the-raft)). It relies on a 3rd party lease system - S3 conditional writes. A two node cluster starts up and both race to claim the lease in S3 to become the leader. Only one node can be the winner. The loser becomes the follower.
 
 In the healthy state, Celeriant doesn't touch S3. Saves costs, reduces latency, no live dependency on S3 being operational. When a node goes down, the cluster moves to a failover state. Follower can take over as leader via S3 CAS. Writes are still accepted, and are replicated to S3 instead.
 
@@ -149,4 +149,5 @@ Celeriant is currently a passion project. The plan is to release as Apache 2.0. 
 
 # Who
 
-Celeriant is being built by Tyson Brown. 20yrs XP in enterprise, high performance systems. Based in Australia, currently a Lead Consultant at Thoughtworks.
+Celeriant is being built by [Tyson Brown](https://www.linkedin.com/in/tyson-brown-208b88b6/). 20yrs XP in enterprise, high performance systems. Based in Australia, currently a Lead Consultant at Thoughtworks.
+
