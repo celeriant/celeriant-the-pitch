@@ -3,7 +3,7 @@
 A fast, distributed, append only write-ahead-log, built specifically for event-sourcing. It's dedicated to the write side of [CQRS](https://www.martinfowler.com/bliki/CQRS.html).
 
 ## Why Celeriant
-Event sourcing is hard. The OSS tooling we have right now is not a great fit. The infrastructure required to build systems that rely on events slows dev teams down.
+Celeriant is an event store that lets you enforce business invariants at write time across multiple streams, without embedding a distributed transaction system into every service.
 
 Celeriant prioritises correctness by default. Optimistic concurrency control, strict ordering of events, exactly once writes, schema validation, and cluster wide durability.
 
@@ -11,20 +11,21 @@ Scale as you grow. PostgreSQL gives you correctness but not throughput. Kafka gi
 
 Simple to run. Two nodes. No zookeeper, no partition rebalancing or vacuum tuning. Bounded memory, regardless of aggregate or event counts. Celeriant plays nice in prod.
 
-Built for regulated industries. Durable writes, per-event encryption, and every event is linked to its predecessor via [Blake3](https://github.com/BLAKE3-team/BLAKE3) hash, creating an immutable audit chain.
+Durable writes, per-event encryption, and every event is linked to its predecessor via [Blake3](https://github.com/BLAKE3-team/BLAKE3) hash, creating an immutable audit chain.
 
 ## 'Hello World' write benchmark
 
-- 25k open client connections
 - 32 core CPU, 1x nvme over PCIe5
 - Single 'Hello World' event payload per acknowledged write
 - Clients & Servers on localhost, kernel syscalls but no network hops
 
-```
-Single Node: 370k writes/sec, latency p99 ~35ms
+### Throughput benchmark - 25k open client connections
+- Single Node: **350k writes/sec**, latency avg 68ms, p99 170ms
+- Replicated Cluster: **190k writes/sec**, latency avg 125ms, p99 272ms
 
-Replicated Cluster: 260k writes/sec, latency p99 ~85ms
-```
+### Latency benchmark - 1000 open client connections
+- Single Node: 50k writes/sec, **latency avg 20ms, p99 27ms**
+- Replicated Cluster: 15k writes/sec, **latency avg 63ms, p99 ~88ms**
 
 ## Why Not xxx?
 
@@ -96,9 +97,7 @@ Fsync and replication are expensive, so Celeriant amortises this cost via batchi
 
 ### Cluster Replication
 
-Celeriant does not implement a consensus algorithm. No RAFT, PAXOS or VSR ([why not?](https://transactional.blog/talk/enough-with-all-the-raft)). It relies on a 3rd party lease system - S3 conditional writes. A two node cluster starts up and both race to claim the lease in S3 to become the leader. Only one node can be the winner. The loser becomes the follower.
-
-In the healthy state, Celeriant doesn't touch S3. Saves costs, reduces latency, no live dependency on S3 being operational. When a node goes down, the cluster moves to a failover state. Follower can take over as leader via S3 CAS. Writes are still accepted, and are replicated to S3 instead.
+Celeriant runs a simple two node cluster. Leader accepts writes, replicates to the follower. If a node goes down, data is backed up to S3 instead. Leader election also goes through S3.
 
 The cluster is highly available. Zero downtime upgrades. No split-brain, no lost data.
 
@@ -108,7 +107,7 @@ Rolling upgrades work by shutting down one node at a time, the cluster fails ove
 
 ### Memory & Indexing Design
 
-Celeriant doesn't use indexing structures like LSM trees. It uses bloom filters and falls back to reverse-wal scanning, with hot data in memory in a least-recently-used (LRU) cache.
+The storage engine is designed for very high stream cardinality without index amplification. It uses bloom filters and falls back to reverse-wal scanning, with hot data in memory in a least-recently-used (LRU) cache.
 
 Bloom filters and LRU caches ensure we never run out of RAM, no matter how many aggregates and events the server has. Writes and reads are always fast, the only trade off being slightly higher latency for reads on cold aggregates.
 
@@ -139,13 +138,12 @@ It's in a state where it can be used in non-prod for pilot projects. But there a
 - WAL compaction
 - mTLS & oAuth
 - Event type schema validation
-- Clients for Java, Go, C#, Python
 
-There is also chaos testing / hardening to be done. And plenty of docs to write.
+And plenty of docs to write.
 
 # Licensing
 
-Celeriant is currently a passion project. The plan is to release as Apache 2.0. The OSS version should be fully functional, I don't want to ship a broken OSS core product.
+The plan is to release as Apache 2.0. The OSS version should be fully functional, I don't want to ship a broken OSS core product.
 
 # Who
 
