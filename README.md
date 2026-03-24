@@ -13,19 +13,16 @@ Simple to run. Two nodes. No zookeeper, no partition rebalancing or vacuum tunin
 
 Durable writes, per-event encryption, and every event is linked to its predecessor via [Blake3](https://github.com/BLAKE3-team/BLAKE3) hash, creating an immutable audit chain.
 
-## 'Hello World' write benchmark
+## 'Hello World' write benchmark on AWS
 
-- 32 core CPU, 1x nvme over PCIe5
+Celeriant achieves 400k writes/sec with a p99 < 80ms.
+
 - Single 'Hello World' event payload per acknowledged write
-- Clients & Servers on localhost, kernel syscalls but no network hops
-
-### Throughput benchmark - 25k open client connections
-- Single Node: **350k writes/sec**, latency avg 68ms, p99 170ms
-- Replicated Cluster: **190k writes/sec**, latency avg 125ms, p99 272ms
-
-### Latency benchmark - 1000 open client connections
-- Single Node: 50k writes/sec, **latency avg 20ms, p99 27ms**
-- Replicated Cluster: 15k writes/sec, **latency avg 63ms, p99 ~88ms**
+- three load generating clients
+- AWS ap-southeast-2 all same AZ
+- mTLS for client and cluster replication
+- Two i4i.8xlarge data nodes (32 vCPU, NVMe) for cluster
+- Every write is fdatasync()'d to disk on both nodes via Direct I/O, replicated to follower, acknowledged only after both succeed.
 
 ## Why Not xxx?
 
