@@ -128,15 +128,7 @@ Kafka can still be used and is encouraged for event streaming purposes. This is 
 
 # Current State
 
-80% done. Last 3 years saw many prototypes, started as a C#/.net project, later moving to rust. Latest iteration started ~7 months ago -> looking to finish and release mid 2026 latest. 
-
-It's in a state where it can be used in non-prod for pilot projects. But there are still some missing features:
-
-- WAL compaction
-- mTLS & oAuth
-- Event type schema validation
-
-And plenty of docs to write.
+100% done. Still a private repo for now. Looking for local design partners to iterate on the design with non-prod workloads.
 
 # Licensing
 
