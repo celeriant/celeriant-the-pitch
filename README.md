@@ -126,15 +126,15 @@ Celeriant being a write model, doesn't provide SQL query support. The primary re
 
 Kafka can still be used and is encouraged for event streaming purposes. This is when you don't need OCC, and systems don't rely on common state for their invariants.
 
-# Current State
+## Current State
 
 100% done. Still a private repo for now. Looking for local design partners to iterate on the design with non-prod workloads.
 
-# Licensing
+## Licensing
 
 The plan is to release as Apache 2.0. The OSS version should be fully functional, I don't want to ship a broken OSS core product.
 
-# Who
+## Who
 
 Celeriant is being built by [Tyson Brown](https://www.linkedin.com/in/tyson-brown-208b88b6/). 20yrs XP in enterprise, high performance systems. Based in Australia, currently a Lead Consultant at Thoughtworks.
 
